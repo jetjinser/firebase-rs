@@ -1,6 +1,5 @@
 use constants::{Method, Response, AUTH};
 use errors::{RequestError, RequestResult, UrlParseError, UrlParseResult};
-use params::Params;
 use reqwest::{Client, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -8,6 +7,8 @@ use serde_json::Value;
 use std::fmt::Debug;
 use url::Url;
 use utils::check_uri;
+
+pub use params::Paramable;
 
 mod constants;
 mod errors;
@@ -30,9 +31,7 @@ impl Firebase {
         Self: Sized,
     {
         match check_uri(&uri) {
-            Ok(uri) => Ok(Self {
-                uri,
-            }),
+            Ok(uri) => Ok(Self { uri }),
             Err(err) => Err(err),
         }
     }
@@ -49,25 +48,10 @@ impl Firebase {
         match check_uri(&uri) {
             Ok(mut uri) => {
                 uri.set_query(Some(&format!("{}={}", AUTH, auth_key)));
-                Ok(Self {
-                    uri,
-                })
+                Ok(Self { uri })
             }
             Err(err) => Err(err),
         }
-    }
-
-    /// ```rust
-    /// use firebase_rs::Firebase;
-    ///
-    /// # async fn run() {
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().with_params().start_at(1).order_by("name").equal_to(5).finish();
-    /// let result = firebase.get::<String>().await;
-    /// # }
-    /// ```
-    pub fn with_params(&self) -> Params {
-        let uri = self.uri.clone();
-        Params::new(uri)
     }
 
     /// ```
@@ -284,6 +268,19 @@ impl Firebase {
     {
         let value = serde_json::to_value(&data).unwrap();
         self.request(Method::PATCH, Some(value)).await
+    }
+}
+
+impl Paramable for Firebase {
+    fn add_param<T>(&mut self, key: &str, value: T) -> &mut Self
+    where
+        T: ToString,
+    {
+        self.uri
+            .query_pairs_mut()
+            .append_pair(key, &value.to_string());
+
+        self
     }
 }
 
