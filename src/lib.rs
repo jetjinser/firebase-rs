@@ -33,7 +33,7 @@ impl Firebase {
     where
         Self: Sized,
     {
-        match check_uri(&uri) {
+        match check_uri(uri) {
             Ok(uri) => Ok(Self {
                 uri,
                 client: Client::default(),
@@ -51,7 +51,7 @@ impl Firebase {
     where
         Self: Sized,
     {
-        match check_uri(&uri) {
+        match check_uri(uri) {
             Ok(mut uri) => {
                 uri.set_query(Some(&format!("{}={}", AUTH, auth_key)));
 
@@ -144,7 +144,7 @@ impl Firebase {
         T: Serialize + DeserializeOwned + Debug,
         Resp: for<'a> Deserialize<'a>,
     {
-        let data = serde_json::to_value(&data).unwrap();
+        let data = serde_json::to_value(data).unwrap();
         self.request(Method::POST, Some(data)).await
     }
 
@@ -228,7 +228,7 @@ impl Firebase {
     where
         T: DeserializeOwned + Serialize + Debug,
     {
-        let value = serde_json::to_value(&data).unwrap();
+        let value = serde_json::to_value(data).unwrap();
         self.request(Method::PATCH, Some(value)).await
     }
 }
