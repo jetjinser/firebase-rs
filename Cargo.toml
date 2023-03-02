@@ -13,13 +13,20 @@ keywords = ["firebase", "rest", "api", "web", "database"]
 
 [dependencies]
 url = "2.2.2"
-reqwest = { version = "0.11.11", optional = true, features = ["json"] }
 serde_json = "1.0.82"
 serde = { version = "1.0.139", features = ["derive"] }
 itertools = "0.10.5"
+# http-client = { version = "6.5.0", default-features = false }
+http = "0.2"
+
+reqwest = { version = "0.11.11", optional = true, features = ["json"] }
+http_req_wasi = { version = "0.10.2", optional = true }
+async-trait = "0.1.64"
 
 [dev-dependencies]
 tokio = { version = "1.20.0", features = ["rt", "macros"] }
 
 [features]
 default = ["reqwest"]
+
+wasi = ["http_req_wasi"]

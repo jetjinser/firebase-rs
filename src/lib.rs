@@ -1,8 +1,9 @@
-use constants::{Method, Response, AUTH};
-use errors::{RequestError, RequestResult, UrlParseError, UrlParseResult};
-use reqwest::{Client, StatusCode};
+use clients::{Client, Error, HttpClient};
+use constants::AUTH;
+use errors::{UrlParseError, UrlParseResult};
+use http::{Method, Request, Response, Uri};
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt::Debug;
 use url::Url;
@@ -10,6 +11,7 @@ use utils::check_uri;
 
 pub use params::Paramable;
 
+mod clients;
 mod constants;
 mod errors;
 mod params;
@@ -18,6 +20,7 @@ mod utils;
 #[derive(Debug)]
 pub struct Firebase {
     uri: Url,
+    client: Client,
 }
 
 impl Firebase {
@@ -31,7 +34,10 @@ impl Firebase {
         Self: Sized,
     {
         match check_uri(&uri) {
-            Ok(uri) => Ok(Self { uri }),
+            Ok(uri) => Ok(Self {
+                uri,
+                client: Client::default(),
+            }),
             Err(err) => Err(err),
         }
     }
@@ -48,7 +54,11 @@ impl Firebase {
         match check_uri(&uri) {
             Ok(mut uri) => {
                 uri.set_query(Some(&format!("{}={}", AUTH, auth_key)));
-                Ok(Self { uri })
+
+                Ok(Self {
+                    uri,
+                    client: Client::default(),
+                })
             }
             Err(err) => Err(err),
         }
@@ -85,83 +95,31 @@ impl Firebase {
         self.uri.to_string()
     }
 
-    async fn request(&self, method: Method, data: Option<Value>) -> RequestResult<Response> {
-        let client = Client::new();
+    async fn request<Resp>(
+        &self,
+        method: Method,
+        data: Option<Value>,
+    ) -> Result<Response<Resp>, Error>
+    where
+        Resp: for<'a> Deserialize<'a>,
+    {
+        let req = Request::builder()
+            .method(method)
+            .uri(&self.uri.to_string().parse::<Uri>().expect("infallible"))
+            .body(data)
+            .unwrap();
 
-        return match method {
-            Method::GET => {
-                let request = client.get(self.uri.to_string()).send().await;
-                match request {
-                    Ok(response) => {
-                        if response.status() == StatusCode::from_u16(200).unwrap() {
-                            return match response.text().await {
-                                Ok(data) => {
-                                    if data.as_str() == "null" {
-                                        return Err(RequestError::NotFoundOrNullBody);
-                                    }
-                                    return Ok(Response { data });
-                                }
-                                Err(_) => Err(RequestError::NotJSON),
-                            };
-                        } else {
-                            Err(RequestError::NetworkError)
-                        }
-                    }
-                    Err(_) => return Err(RequestError::NetworkError),
-                }
-            }
-            Method::POST => {
-                if !data.is_some() {
-                    return Err(RequestError::SerializeError);
-                }
-
-                let request = client.post(self.uri.to_string()).json(&data).send().await;
-                match request {
-                    Ok(response) => {
-                        let data = response.text().await.unwrap();
-                        Ok(Response { data })
-                    }
-                    Err(_) => Err(RequestError::NetworkError),
-                }
-            }
-            Method::PATCH => {
-                if !data.is_some() {
-                    return Err(RequestError::SerializeError);
-                }
-
-                let request = client.patch(self.uri.to_string()).json(&data).send().await;
-                match request {
-                    Ok(response) => {
-                        let data = response.text().await.unwrap();
-                        Ok(Response { data })
-                    }
-                    Err(_) => Err(RequestError::NetworkError),
-                }
-            }
-            Method::DELETE => {
-                let request = client.delete(self.uri.to_string()).send().await;
-                match request {
-                    Ok(_) => Ok(Response {
-                        data: String::default(),
-                    }),
-                    Err(_) => Err(RequestError::NetworkError),
-                }
-            }
-        };
+        self.client.send(req).await
     }
 
-    async fn request_generic<T>(&self, method: Method) -> RequestResult<T>
+    async fn request_generic<T>(&self, method: Method) -> Result<T, Error>
     where
         T: Serialize + DeserializeOwned + Debug,
     {
-        let request = self.request(method, None).await;
+        let request = self.request::<T>(method, None).await;
 
         match request {
-            Ok(response) => {
-                let data: T = serde_json::from_str(response.data.as_str()).unwrap();
-
-                Ok(data)
-            }
+            Ok(response) => Ok(response.into_body()),
             Err(err) => Err(err),
         }
     }
@@ -181,9 +139,10 @@ impl Firebase {
     /// let users = firebase.set(&user).await;
     /// # }
     /// ```
-    pub async fn set<T>(&self, data: &T) -> RequestResult<Response>
+    pub async fn set<T, Resp>(&self, data: &T) -> Result<Response<Resp>, Error>
     where
         T: Serialize + DeserializeOwned + Debug,
+        Resp: for<'a> Deserialize<'a>,
     {
         let data = serde_json::to_value(&data).unwrap();
         self.request(Method::POST, Some(data)).await
@@ -204,7 +163,10 @@ impl Firebase {
     /// let users = firebase.get::<HashMap<String, User>>().await;
     /// # }
     /// ```
-    pub async fn get_as_string(&self) -> RequestResult<Response> {
+    pub async fn get_as_string<Resp>(&self) -> Result<Response<Resp>, Error>
+    where
+        Resp: for<'a> Deserialize<'a>,
+    {
         self.request(Method::GET, None).await
     }
 
@@ -228,7 +190,7 @@ impl Firebase {
     /// let user = firebase.get::<HashMap<String, User>>().await;
     /// # }
     /// ```
-    pub async fn get<T>(&self) -> RequestResult<T>
+    pub async fn get<T>(&self) -> Result<T, Error>
     where
         T: Serialize + DeserializeOwned + Debug,
     {
@@ -243,7 +205,7 @@ impl Firebase {
     /// firebase.delete().await;
     /// # }
     /// ```
-    pub async fn delete(&self) -> RequestResult<Response> {
+    pub async fn delete(&self) -> Result<Response<()>, Error> {
         self.request(Method::DELETE, None).await
     }
 
@@ -262,7 +224,7 @@ impl Firebase {
     /// let users = firebase.update(&user).await;
     /// # }
     /// ```
-    pub async fn update<T>(&self, data: &T) -> RequestResult<Response>
+    pub async fn update<T>(&self, data: &T) -> Result<Response<T>, Error>
     where
         T: DeserializeOwned + Serialize + Debug,
     {

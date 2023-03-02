@@ -19,25 +19,25 @@ impl Display for UrlParseError {
     }
 }
 
-pub type RequestResult<T> = Result<T, RequestError>;
-
-#[derive(Debug)]
-pub enum RequestError {
-    NotJSON,
-    NoUTF8,
-    NetworkError,
-    SerializeError,
-    NotFoundOrNullBody,
-}
-
-impl Display for RequestError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RequestError::NotJSON => write!(f, "Invalid JSON"),
-            RequestError::NoUTF8 => write!(f, "Utf8 error"),
-            RequestError::NetworkError => write!(f, "Network error"),
-            RequestError::SerializeError => write!(f, "Serialize error"),
-            RequestError::NotFoundOrNullBody => write!(f, "Body is null or record is not found"),
-        }
-    }
-}
+// pub type RequestResult<T> = Result<T, RequestError>;
+//
+// #[derive(Debug)]
+// pub enum RequestError {
+//     NotJSON,
+//     NoUTF8,
+//     NetworkError,
+//     SerializeError,
+//     NotFoundOrNullBody,
+// }
+//
+// impl Display for RequestError {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             RequestError::NotJSON => write!(f, "Invalid JSON"),
+//             RequestError::NoUTF8 => write!(f, "Utf8 error"),
+//             RequestError::NetworkError => write!(f, "Network error"),
+//             RequestError::SerializeError => write!(f, "Serialize error"),
+//             RequestError::NotFoundOrNullBody => write!(f, "Body is null or record is not found"),
+//         }
+//     }
+// }
