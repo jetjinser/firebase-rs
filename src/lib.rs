@@ -1,7 +1,7 @@
 use clients::{Client, Error, HttpClient};
 use constants::AUTH;
 use errors::{UrlParseError, UrlParseResult};
-use http::{Method, Request, Response, Uri};
+use http::{Method, Request};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -9,13 +9,18 @@ use std::fmt::Debug;
 use url::Url;
 use utils::check_uri;
 
+pub use http::{Response, Uri};
 pub use params::Paramable;
+
+pub type RawResponse = Response<Value>;
 
 mod clients;
 mod constants;
 mod errors;
 mod params;
 mod utils;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Firebase {
@@ -88,18 +93,15 @@ impl Firebase {
     /// ```
     /// use firebase_rs::Firebase;
     ///
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().at("users");
-    /// let uri = firebase.get_uri();
+    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let endpoint = firebase.at("users");
+    /// let uri = endpoint.get_uri();
     /// ```
     pub fn get_uri(&self) -> String {
         self.uri.to_string()
     }
 
-    async fn request<Resp>(
-        &self,
-        method: Method,
-        data: Option<Value>,
-    ) -> Result<Response<Resp>, Error>
+    async fn request<Resp>(&self, method: Method, data: Option<Value>) -> Result<Response<Resp>>
     where
         Resp: for<'a> Deserialize<'a>,
     {
@@ -112,7 +114,7 @@ impl Firebase {
         self.client.send(req).await
     }
 
-    async fn request_generic<T>(&self, method: Method) -> Result<T, Error>
+    async fn request_generic<T>(&self, method: Method) -> Result<T>
     where
         T: Serialize + DeserializeOwned + Debug,
     {
@@ -125,7 +127,7 @@ impl Firebase {
     }
 
     /// ```
-    /// use firebase_rs::Firebase;
+    /// use firebase_rs::{Firebase, Response};
     /// use serde::{Serialize, Deserialize};
     ///
     /// #[derive(Serialize, Deserialize, Debug)]
@@ -135,11 +137,12 @@ impl Firebase {
     ///
     /// # async fn run() {
     /// let user = User { name: String::default() };
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().at("users");
-    /// let users = firebase.set(&user).await;
+    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let endpoint = firebase.at("users");
+    /// let users: Result<Response<String>, _> = endpoint.set(&user).await;
     /// # }
     /// ```
-    pub async fn set<T, Resp>(&self, data: &T) -> Result<Response<Resp>, Error>
+    pub async fn set<T, Resp>(&self, data: &T) -> Result<Response<Resp>>
     where
         T: Serialize + DeserializeOwned + Debug,
         Resp: for<'a> Deserialize<'a>,
@@ -159,14 +162,12 @@ impl Firebase {
     /// }
     ///
     /// # async fn run() {
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().at("users");
-    /// let users = firebase.get::<HashMap<String, User>>().await;
+    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let endpoint = firebase.at("users");
+    /// let users = endpoint.get::<HashMap<String, User>>().await;
     /// # }
     /// ```
-    pub async fn get_as_string<Resp>(&self) -> Result<Response<Resp>, Error>
-    where
-        Resp: for<'a> Deserialize<'a>,
-    {
+    pub async fn get_as_string(&self) -> Result<Response<String>> {
         self.request(Method::GET, None).await
     }
 
@@ -181,16 +182,18 @@ impl Firebase {
     /// }
     ///
     /// # async fn run() {
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().at("users").at("USER_ID");
-    /// let user = firebase.get::<User>().await;
+    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let endpoint = firebase.at("users").at("USER_ID");
+    /// let user = endpoint.get::<User>().await;
     ///
     ///  // OR
     ///
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().at("users");
-    /// let user = firebase.get::<HashMap<String, User>>().await;
+    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let endpoint = firebase.at("users");
+    /// let user = endpoint.get::<HashMap<String, User>>().await;
     /// # }
     /// ```
-    pub async fn get<T>(&self) -> Result<T, Error>
+    pub async fn get<T>(&self) -> Result<T>
     where
         T: Serialize + DeserializeOwned + Debug,
     {
@@ -198,19 +201,23 @@ impl Firebase {
     }
 
     /// ```
-    /// use firebase_rs::Firebase;
+    /// use firebase_rs::{Firebase, Response, Result};
     ///
     /// # async fn run() {
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().at("users").at("USER_ID");
-    /// firebase.delete().await;
+    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let endpoint = firebase.at("users").at("USER_ID");
+    /// endpoint.delete::<serde_json::Value>().await;
     /// # }
     /// ```
-    pub async fn delete(&self) -> Result<Response<()>, Error> {
+    pub async fn delete<Resp>(&self) -> Result<Response<Resp>>
+    where
+        Resp: for<'a> Deserialize<'a>,
+    {
         self.request(Method::DELETE, None).await
     }
 
     /// ```
-    /// use firebase_rs::Firebase;
+    /// use firebase_rs::{Firebase, Response};
     /// use serde::{Serialize, Deserialize};
     ///
     /// #[derive(Serialize, Deserialize, Debug)]
@@ -220,13 +227,15 @@ impl Firebase {
     ///
     /// # async fn run() {
     /// let user = User { name: String::default() };
-    /// let firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap().at("users").at("USER_ID");
-    /// let users = firebase.update(&user).await;
+    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let endpoint = firebase.at("users").at("USER_ID");
+    /// let users: Response<serde_json::Value> = endpoint.update(&user).await.unwrap();
     /// # }
     /// ```
-    pub async fn update<T>(&self, data: &T) -> Result<Response<T>, Error>
+    pub async fn update<T, Resp>(&self, data: &T) -> Result<Response<Resp>>
     where
         T: DeserializeOwned + Serialize + Debug,
+        Resp: for<'a> Deserialize<'a>,
     {
         let value = serde_json::to_value(data).unwrap();
         self.request(Method::PATCH, Some(value)).await
