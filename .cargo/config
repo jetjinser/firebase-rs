@@ -1,2 +1,5 @@
 [alias]
 t = "test -- --nocapture"
+
+[build]
+target = "wasm32-wasi"

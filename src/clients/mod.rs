@@ -1,10 +1,10 @@
-#[cfg(feature = "reqwest")]
-mod reqwest;
-
 use async_trait::async_trait;
 use http::{Request, Response};
 use serde::Deserialize;
 use serde_json::Value;
+
+#[cfg(feature = "reqwest")]
+mod reqwest;
 
 #[cfg(feature = "reqwest")]
 pub use self::reqwest::{Client, Error};
@@ -15,7 +15,7 @@ pub use self::reqwest::{Client, Error};
 mod http_req_wasi;
 
 #[cfg(feature = "http_req_wasi")]
-pub use self::http_req_wasi::Client;
+pub use self::http_req_wasi::{Client, Error};
 
 // ---
 

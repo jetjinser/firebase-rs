@@ -128,6 +128,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "unicase",
  "url",
 ]
 
@@ -250,8 +251,6 @@ dependencies = [
 [[package]]
 name = "http_req_wasi"
 version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3556b0e995620949f801b847c8706fd8ae1c15f42eeaa9c0da3111b2eb0c6f1b"
 dependencies = [
  "unicase",
  "wasmedge_wasi_socket",
