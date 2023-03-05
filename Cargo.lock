@@ -251,6 +251,7 @@ dependencies = [
 [[package]]
 name = "http_req_wasi"
 version = "0.10.2"
+source = "git+https://github.com/jetjinser/http_req#c5df7d5c8d3a28c3b856a2d3e63d6b34bbd36fe4"
 dependencies = [
  "unicase",
  "wasmedge_wasi_socket",
