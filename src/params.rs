@@ -1,42 +1,107 @@
-use crate::constants::{
-    END_AT, EQUAL_TO, EXPORT, FORMAT, LIMIT_TO_FIRST, LIMIT_TO_LAST, ORDER_BY, SHALLOW, START_AT,
+use http::{Method, Response};
+use serde::Deserialize;
+use serde_json::Value;
+use url::Url;
+
+use crate::{
+    clients::HttpClient,
+    constants::{
+        END_AT, EQUAL_TO, EXPORT, FORMAT, LIMIT_TO_FIRST, LIMIT_TO_LAST, ORDER_BY, SHALLOW,
+        START_AT,
+    },
+    queries::WithQueries,
+    request::Requestable,
+    types,
+    utils::make_request,
+    Firebase,
 };
 
-pub trait Paramable {
+pub struct WithParams<'fb> {
+    pub firebase: &'fb Firebase,
+    pub uri: Url,
+}
+
+impl<'fb> WithParams<'fb> {
     fn add_param<T>(&mut self, key: &str, value: T) -> &mut Self
     where
-        T: ToString;
+        T: ToString,
+    {
+        self.uri
+            .query_pairs_mut()
+            .append_pair(key, &value.to_string());
 
-    fn order_by(&mut self, key: &str) -> &mut Self {
+        self
+    }
+
+    pub fn order_by(&mut self, key: &str) -> &mut Self {
         self.add_param(ORDER_BY, key)
     }
 
-    fn limit_to_first(&mut self, count: u32) -> &mut Self {
+    pub fn limit_to_first(&mut self, count: u32) -> &mut Self {
         self.add_param(LIMIT_TO_FIRST, count)
     }
 
-    fn limit_to_last(&mut self, count: u32) -> &mut Self {
+    pub fn limit_to_last(&mut self, count: u32) -> &mut Self {
         self.add_param(LIMIT_TO_LAST, count)
     }
 
-    fn start_at(&mut self, index: u32) -> &mut Self {
+    pub fn start_at(&mut self, index: u32) -> &mut Self {
         self.add_param(START_AT, index)
     }
 
-    fn end_at(&mut self, index: u32) -> &mut Self {
+    pub fn end_at(&mut self, index: u32) -> &mut Self {
         self.add_param(END_AT, index)
     }
 
-    fn equal_to(&mut self, value: u32) -> &mut Self {
+    pub fn equal_to(&mut self, value: u32) -> &mut Self {
         self.add_param(EQUAL_TO, value)
     }
 
-    fn shallow(&mut self, flag: bool) -> &mut Self {
+    pub fn shallow(&mut self, flag: bool) -> &mut Self {
         self.add_param(SHALLOW, flag)
     }
 
-    fn format(&mut self) -> &mut Self {
+    pub fn format(&mut self) -> &mut Self {
         self.add_param(FORMAT, EXPORT)
+    }
+
+    pub fn finish(self) -> &'fb Firebase {
+        self.firebase
+    }
+}
+
+impl WithParams<'_> {
+    pub fn with_queries(&self) -> WithQueries {
+        WithQueries {
+            firebase: self.firebase,
+            uri: self.uri.clone(),
+        }
+    }
+}
+
+impl Requestable<'_> for WithParams<'_> {
+    fn request<'life0, 'async_trait, Resp>(
+        &'life0 self,
+        method: Method,
+        data: Option<Value>,
+    ) -> core::pin::Pin<
+        Box<
+            dyn core::future::Future<Output = types::Result<Response<Resp>>>
+                + core::marker::Send
+                + 'async_trait,
+        >,
+    >
+    where
+        Resp: for<'a> Deserialize<'a>,
+        Resp: 'async_trait,
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        Box::pin(async {
+            let req = make_request(&self.uri, method, data);
+
+            self.firebase.client.send(req).await
+        })
     }
 }
 
