@@ -1,23 +1,22 @@
-use crate::params::WithParams;
 use clients::{Client, HttpClient};
 use constants::AUTH;
 use errors::{UrlParseError, UrlParseResult};
-use http::Method;
-use queries::WithQueries;
+use http::{Method, Request};
 use serde::Deserialize;
 use serde_json::Value;
-use std::{fmt::Debug, pin::Pin};
+use std::{fmt::Debug, pin::Pin, sync::Arc};
+use tokio::sync::Mutex;
 use url::Url;
-use utils::{check_uri, make_request};
+use utils::check_uri;
 
 pub use http::{Response, Uri};
+pub use params::Paramable;
 pub use request::Requestable;
 
 mod clients;
 mod constants;
 mod errors;
 mod params;
-mod queries;
 mod request;
 mod types;
 mod utils;
@@ -25,7 +24,7 @@ mod utils;
 #[derive(Debug)]
 pub struct Firebase {
     base_uri: Url,
-    client: Client,
+    client: Arc<Mutex<Client>>,
 }
 
 impl Firebase {
@@ -41,7 +40,7 @@ impl Firebase {
         match check_uri(uri) {
             Ok(uri) => Ok(Self {
                 base_uri: uri,
-                client: Client::default(),
+                client: Arc::new(Mutex::new(Client::default())),
             }),
             Err(err) => Err(err),
         }
@@ -62,7 +61,7 @@ impl Firebase {
 
                 Ok(Self {
                     base_uri: uri,
-                    client: Client::default(),
+                    client: Arc::new(Mutex::new(Client::default())),
                 })
             }
             Err(err) => Err(err),
@@ -81,7 +80,28 @@ impl Firebase {
     }
 }
 
-impl<'fb> Requestable<'fb> for Firebase {
+impl Firebase {
+    pub fn at(&self, path: &str) -> Self {
+        let re_path: String = self
+            .base_uri
+            .path_segments()
+            .unwrap_or_else(|| panic!("cannot be base"))
+            .map(|seg| format!("{}/", seg.trim_end_matches(".json")))
+            .collect();
+
+        let new_path = re_path + path;
+
+        let mut uri = self.base_uri.clone();
+        uri.set_path(&format!("{}.json", new_path.trim_end_matches(".json")));
+
+        Firebase {
+            base_uri: uri,
+            client: Arc::clone(&self.client),
+        }
+    }
+}
+
+impl Requestable for Firebase {
     fn request<'life0, 'async_trait, Resp>(
         &'life0 self,
         method: Method,
@@ -100,25 +120,33 @@ impl<'fb> Requestable<'fb> for Firebase {
         Self: 'async_trait,
     {
         Box::pin(async {
-            let req = make_request(&self.base_uri, method, data);
-
-            self.client.send(req).await
+            let req = Request::builder()
+                .method(method)
+                .uri(
+                    self.base_uri
+                        .to_string()
+                        .parse::<Uri>()
+                        .expect("infallible"),
+                )
+                .body(data)
+                .unwrap();
+            let client = self.client.lock().await;
+            (*client).send(req).await
         })
     }
 }
 
-impl Firebase {
-    pub fn with_params(&self) -> WithParams {
-        WithParams {
-            firebase: self,
-            uri: self.base_uri.clone(),
-        }
-    }
+impl Paramable for Firebase {
+    fn add_param<T>(&self, key: &str, value: T) -> Self
+    where
+        T: ToString,
+    {
+        let mut uri = self.base_uri.clone();
+        uri.query_pairs_mut().append_pair(key, &value.to_string());
 
-    pub fn with_queries(&self) -> WithQueries {
-        WithQueries {
-            firebase: self,
-            uri: self.base_uri.clone(),
+        Self {
+            base_uri: uri,
+            client: Arc::clone(&self.client),
         }
     }
 }

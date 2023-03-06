@@ -128,6 +128,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio_wasi",
  "unicase",
  "url",
 ]
@@ -251,7 +252,7 @@ dependencies = [
 [[package]]
 name = "http_req_wasi"
 version = "0.10.2"
-source = "git+https://github.com/jetjinser/http_req#c5df7d5c8d3a28c3b856a2d3e63d6b34bbd36fe4"
+source = "git+https://github.com/jetjinser/http_req#88b6b5c8bcad1f531d194366ae4af0a1e0b439f5"
 dependencies = [
  "unicase",
  "wasmedge_wasi_socket",
@@ -786,6 +787,19 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "tokio_wasi"
+version = "1.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79a0b12b61ddfb9903d57b2db3c50b959c0b5239e169644c0b3659696ba4c00e"
+dependencies = [
+ "autocfg",
+ "pin-project-lite",
+ "tokio-macros",
+ "wasmedge_wasi_socket",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]

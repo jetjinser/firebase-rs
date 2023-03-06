@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::fmt::Debug;
 
 #[async_trait]
-pub trait Requestable<'fb> {
+pub trait Requestable {
     async fn request<Resp>(&self, method: Method, data: Option<Value>) -> Result<Response<Resp>>
     where
         Resp: for<'a> Deserialize<'a>;

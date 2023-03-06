@@ -1,7 +1,5 @@
 use crate::errors::UrlParseResult;
 use crate::UrlParseError;
-use http::{Method, Request, Uri};
-use serde_json::Value;
 use url::Url;
 
 pub fn check_uri(uri: &str) -> UrlParseResult<Url> {
@@ -17,16 +15,4 @@ pub fn check_uri(uri: &str) -> UrlParseResult<Url> {
     }
 
     Ok(uri)
-}
-
-pub(crate) fn make_request(
-    uri: &Url,
-    method: Method,
-    data: Option<Value>,
-) -> Request<Option<Value>> {
-    Request::builder()
-        .method(method)
-        .uri(uri.to_string().parse::<Uri>().expect("infallible"))
-        .body(data)
-        .unwrap()
 }
