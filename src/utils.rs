@@ -2,7 +2,7 @@ use crate::errors::UrlParseResult;
 use crate::UrlParseError;
 use url::Url;
 
-pub fn check_uri(uri: &str) -> UrlParseResult<Url> {
+pub(crate) fn check_uri(uri: &str) -> UrlParseResult<Url> {
     let uri = uri.trim_end_matches('/').parse::<Url>();
 
     let uri = match uri {

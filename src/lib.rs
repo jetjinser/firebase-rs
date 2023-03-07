@@ -1,3 +1,47 @@
+//! # Quick Start
+//!
+//! ```rust
+//! use std::collections::HashMap;
+//! use firebase_rs::{Firebase, Requestable, Paramable};
+//! use serde_json::Value;
+//!
+//! #[tokio::main]
+//! async fn run() {
+//!     let firebase =
+//!            Firebase::new("https://hacker-news.firebaseio.com/v0/").expect("error init Firebase");
+//!     let cons = firebase
+//!            .at("topstories")
+//!            .limit_to_first(7)
+//!            .order_by("\"$key\"");
+//!     let item_ids = endpoint.get::<Value>().await;
+//!
+//!     println!("{:?}", item_ids);
+//! }
+//! ```
+//!
+//! ## Multi Client Backend
+//! The default client is `reqwest`.
+//!
+//! Available Client:
+//! - [reqwest](https://docs.rs/reqwest/latest/reqwest/)
+//! - [http_req_wasi](https://github.com/second-state/http_req)
+//!
+//! ### WASM Support
+//! Only Support `wasmedge` now.
+//!
+//! `Cargo.toml` example:
+//! ```toml
+//! ...
+//! [dependencies]
+//! tokio_wasi = { version = "1.25.1", features = ["full"] }
+//!
+//! [dependencies.firebase-rs]
+//! git = "https://github.com/jetjinser/firebase-rs"
+//! default-features = false
+//! features = ["wasmedge"]
+//! ...
+//! ```
+
 use clients::{Client, HttpClient};
 use constants::AUTH;
 use errors::{UrlParseError, UrlParseResult};
@@ -12,6 +56,7 @@ use utils::check_uri;
 pub use http::{Response, Uri};
 pub use params::Paramable;
 pub use request::Requestable;
+pub use types::Result;
 
 mod clients;
 mod constants;
@@ -21,6 +66,7 @@ mod request;
 mod types;
 mod utils;
 
+/// Represents an instance of Firebase Realtime Database.
 #[derive(Debug)]
 pub struct Firebase {
     base_uri: Url,
@@ -71,9 +117,15 @@ impl Firebase {
     /// ```
     /// use firebase_rs::Firebase;
     ///
-    /// let mut firebase = Firebase::new("https://myfirebase.firebaseio.com").unwrap();
+    /// let uri = "https://myfirebase.firebaseio.com";
+    /// let mut firebase = Firebase::new(uri).unwrap();
     /// let endpoint = firebase.at("users");
-    /// let uri = endpoint.get_uri();
+    ///
+    /// let base_uri = firebase.base_uri();
+    /// let new_base_uri = endpoint.base_uri();
+    ///
+    /// assert_eq!(base_uri, format!("{}/", uri));
+    /// assert_eq!(new_base_uri, format!("{}/users.json", uri));
     /// ```
     pub fn base_uri(&self) -> String {
         self.base_uri.to_string()
@@ -81,6 +133,19 @@ impl Firebase {
 }
 
 impl Firebase {
+    /// Returns a new `Firebase` instance with the `base_uri` updated to include the given path.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A `&str` that represents the path to be added to the base URI.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `Firebase` with the `base_uri` updated to include the given path.
+    ///
+    /// # Panics
+    ///
+    /// If the `base_uri` cannot be a base URI.
     pub fn at(&self, path: &str) -> Self {
         let re_path: String = self
             .base_uri
@@ -108,7 +173,7 @@ impl Requestable for Firebase {
         data: Option<Value>,
     ) -> Pin<
         Box<
-            dyn core::future::Future<Output = types::Result<Response<Resp>>>
+            dyn core::future::Future<Output = Result<Response<Resp>>>
                 + core::marker::Send
                 + 'async_trait,
         >,

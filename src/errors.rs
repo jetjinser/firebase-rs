@@ -1,11 +1,16 @@
 use std::fmt::{Display, Formatter};
 
+/// Type alias for `Result<T, UrlParseError>` type.
 pub type UrlParseResult<T> = Result<T, UrlParseError>;
 
+/// Error enum for URL parsing errors.
 #[derive(Debug)]
 pub enum UrlParseError {
+    /// The URL path is missing.
     NoPath,
+    /// The URL protocol should be HTTPS.
     NotHttps,
+    /// Error occurred while parsing the URL.
     Parser(url::ParseError),
 }
 
@@ -18,26 +23,3 @@ impl Display for UrlParseError {
         }
     }
 }
-
-// pub type RequestResult<T> = Result<T, RequestError>;
-//
-// #[derive(Debug)]
-// pub enum RequestError {
-//     NotJSON,
-//     NoUTF8,
-//     NetworkError,
-//     SerializeError,
-//     NotFoundOrNullBody,
-// }
-//
-// impl Display for RequestError {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             RequestError::NotJSON => write!(f, "Invalid JSON"),
-//             RequestError::NoUTF8 => write!(f, "Utf8 error"),
-//             RequestError::NetworkError => write!(f, "Network error"),
-//             RequestError::SerializeError => write!(f, "Serialize error"),
-//             RequestError::NotFoundOrNullBody => write!(f, "Body is null or record is not found"),
-//         }
-//     }
-// }
